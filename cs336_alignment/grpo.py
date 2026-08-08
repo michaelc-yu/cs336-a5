@@ -1,4 +1,5 @@
 import torch
+from einops import rearrange
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizer, PreTrainedModel
 
 
@@ -36,3 +37,26 @@ def tokenize_prompt_and_output(
     response_mask = response_mask[:, 1:]
 
     return {"input_ids": input_ids, "labels": labels, "response_mask": response_mask}
+
+
+def get_response_log_probs(
+    model: PreTrainedModel,
+    input_ids: torch.Tensor,
+    labels: torch.Tensor,
+    return_token_entropy: bool = False,
+) -> dict[str, torch.Tensor]:
+    
+    logits = model(input_ids).logits
+    log_probs = torch.nn.functional.log_softmax(logits, dim=-1) # shape (batch_sz, seq_len, vocab_size)
+    token_log_probs = rearrange(
+        torch.gather(log_probs, 2, rearrange(labels, "b s -> b s 1")),
+        "b s 1 -> b s",
+    )
+
+    res = {'log_probs': token_log_probs}
+    if return_token_entropy:
+        token_entropy = -torch.sum(log_probs * torch.exp(log_probs), dim=-1)
+        res['token_entropy'] = token_entropy
+
+    return res
+
