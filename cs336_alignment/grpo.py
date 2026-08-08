@@ -1,5 +1,6 @@
 import torch
 from einops import rearrange
+from typing import Callable
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizer, PreTrainedModel
 
 
@@ -59,4 +60,29 @@ def get_response_log_probs(
         res['token_entropy'] = token_entropy
 
     return res
+
+
+def compute_rollout_rewards(
+    reward_fn: Callable[[str, str], dict[str, float]],
+    rollout_responses: list[str],
+    repeated_ground_truths: list[str],
+) -> tuple[torch.Tensor, dict[str, float]]:
+    assert len(rollout_responses) == len(repeated_ground_truths)
+
+    all_rewards = []
+    for response, ground_truth in zip(rollout_responses, repeated_ground_truths):
+        # reward_dict contains keys 'format_reward', 'answer_reward', and 'reward'
+        reward_dict = reward_fn(response, ground_truth)
+        all_rewards.append(reward_dict)
+
+    raw_rewards = torch.stack([torch.tensor(reward_dict['reward']) for reward_dict in all_rewards])
+
+    mean_reward = sum(reward['reward'] for reward in all_rewards) / len(all_rewards)
+    mean_format_reward = sum(reward['format_reward'] for reward in all_rewards) / len(all_rewards)
+    metadata = {
+        'mean_reward': mean_reward,
+        'mean_format_reward': mean_format_reward,
+    }
+
+    return raw_rewards, metadata
 
