@@ -19,7 +19,7 @@ R1-zero 3-shot:
 
 Observed 10 examples of format reward 1 and correctness reward 0, and 1/10 of them the model output was actually correct but just not parsed correctly.
 
-Example below:
+Example:
 * Question: James decides to run 3 sprints 3 times a week.  He runs 60 meters each sprint.  How many total meters does he run a week?
 * Ground truth: 540
 * Completion: He walks at a speed of 5 m/sec. </think> <answer> He would run 3 * 3 = 9 sprints in a week, totaling 9 * 60 = 540 meters. </answer>
@@ -27,7 +27,6 @@ Example below:
 Observed 10 examples of format reward 0 and correctness reward 0, and similarly 1/10 of them the model output was correct but not parsed correctly.
 
 Example:
---- Example 1 (index 1) ---
 * Question: A robe takes 2 bolts of blue fiber and half that much white fiber.  How many bolts in total does it take?
 * Ground truth: 3
 * Completion: A robe takes 2 bolts of blue fiber and half that much white fiber. So, a robe takes 2 + (2 / 2) = 3 bolts of fiber in total.</think> <answer> It takes 3 bolts of fiber in total.</answer>
