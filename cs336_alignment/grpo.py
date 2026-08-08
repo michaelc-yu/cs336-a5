@@ -1,6 +1,6 @@
 import torch
 from einops import rearrange
-from typing import Callable
+from typing import Callable, Literal
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizer, PreTrainedModel
 
 
@@ -86,3 +86,40 @@ def compute_rollout_rewards(
 
     return raw_rewards, metadata
 
+
+def compute_group_normalized_rewards(
+    raw_rewards: torch.Tensor,
+    group_size: int,
+    baseline: Literal['mean', 'none'] = 'mean',
+    advantage_eps: float = 1e-6,
+    advantage_normalizer: Literal['std', 'none', 'mean'] = 'std',
+):
+    rewards = rearrange(raw_rewards, "(g n) -> g n", n = group_size)
+
+    if baseline == 'mean':
+        group_means = rewards.mean(dim=1, keepdim=True)
+        advantages = rewards - group_means
+    elif baseline == 'none':
+        advantages = rewards
+    else:
+        raise ValueError(f"Unknown baseline: {baseline}")
+
+    if advantage_normalizer == 'std':
+        group_stds = rewards.std(dim=1, keepdim=True) + advantage_eps
+        normalized_advantages = advantages / group_stds
+    elif advantage_normalizer == 'mean':
+        group_means = rewards.mean(dim=1, keepdim=True) + advantage_eps
+        normalized_advantages = advantages / group_means
+    elif advantage_normalizer == 'none':
+        normalized_advantages = advantages
+    else:
+        raise ValueError(f"Unknown advantage normalizer: {advantage_normalizer}")
+
+    metadata = {
+        'mean': raw_rewards.mean().item(),
+        'std': raw_rewards.std().item(),
+        'min': raw_rewards.min().item(),
+        'max': raw_rewards.max().item(),
+    }
+    normalized_advantages = rearrange(normalized_advantages, "g n -> (g n)", n = group_size)
+    return normalized_advantages, metadata
