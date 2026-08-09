@@ -147,3 +147,26 @@ def compute_policy_gradient_loss(
         per_token_policy_gradient_loss = per_token_policy_gradient_loss * response_mask
 
     return per_token_policy_gradient_loss, metadata
+
+
+def aggregate_loss_across_microbatch(
+    per_token_policy_gradient_loss: torch.Tensor,
+    mask: torch.Tensor,
+    loss_normalization: Literal['sequence', 'constant'] = 'sequence',
+    normalization_constant: int | None = None,
+) -> torch.Tensor:
+    masked_loss = per_token_policy_gradient_loss * mask
+    per_sequence_loss_sum = masked_loss.sum(dim=1)
+
+    if loss_normalization == 'sequence':
+        num_response_tokens = mask.sum(dim=1)
+        num_response_tokens = torch.clamp(num_response_tokens, min=1)
+        per_sequence_loss = per_sequence_loss_sum / num_response_tokens
+    elif loss_normalization == 'constant':
+        assert normalization_constant is not None, "Normalization constant must be provided for 'constant' normalization."
+        per_sequence_loss = per_sequence_loss_sum / normalization_constant
+    else:
+        raise ValueError(f"Unknown loss normalization: {loss_normalization}")
+
+    scalar_loss = per_sequence_loss.mean()
+    return scalar_loss
