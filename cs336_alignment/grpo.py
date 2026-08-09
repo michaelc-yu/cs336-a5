@@ -123,3 +123,27 @@ def compute_group_normalized_rewards(
     }
     normalized_advantages = rearrange(normalized_advantages, "g n -> (g n)", n = group_size)
     return normalized_advantages, metadata
+
+
+def compute_policy_gradient_loss(
+    raw_rewards_or_advantages: torch.Tensor,
+    policy_log_probs: torch.Tensor,
+    importance_reweighting_method: Literal['none', 'noclip', 'grpo', 'gspo'] = 'none',
+    old_log_probs: torch.Tensor | None = None,
+    cliprange: float | None = None,
+    response_mask: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+
+    metadata = {}
+    if raw_rewards_or_advantages.ndim == 1:
+        raw_rewards_or_advantages = rearrange(raw_rewards_or_advantages, "b -> b 1",)
+    
+    if importance_reweighting_method == 'none':
+        per_token_policy_gradient_loss = -raw_rewards_or_advantages * policy_log_probs
+    else:
+        raise NotImplementedError
+
+    if response_mask is not None:
+        per_token_policy_gradient_loss = per_token_policy_gradient_loss * response_mask
+
+    return per_token_policy_gradient_loss, metadata
