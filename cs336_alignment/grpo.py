@@ -1,6 +1,7 @@
 import torch
 from einops import rearrange
 from typing import Callable, Literal
+from torch.optim import Optimizer
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizer, PreTrainedModel
 
 
@@ -170,3 +171,105 @@ def aggregate_loss_across_microbatch(
 
     scalar_loss = per_sequence_loss.mean()
     return scalar_loss
+
+
+def grpo_train_step(
+    model: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
+    optimizer: Optimizer,
+    gradient_accumulation_steps: int,
+    max_grad_norm: float | None,
+    reward_fn: Callable[[str, str], dict[str, float]],
+    repeated_prompts: list[str],
+    rollout_responses: list[str],
+    repeated_ground_truths: list[str],
+    group_size: int,
+    baseline: Literal["mean", "none"] = "mean",
+    advantage_eps: float = 1e-6,
+    advantage_normalizer: Literal["std", "mean", "none"] = "std",
+    importance_reweighting_method: Literal["none", "noclip", "grpo", "gspo"] = "none",
+    old_log_probs: torch.Tensor | None = None,
+    cliprange: float | None = None,
+    loss_normalization: Literal["sequence", "constant"] = "sequence",
+    normalization_constant: int | None = None,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor | float]]:
+    
+    # Compute rewards
+    rewards_tensor, rewards_metadata = compute_rollout_rewards(
+        reward_fn=reward_fn, rollout_responses=rollout_responses, repeated_ground_truths=repeated_ground_truths
+    )
+
+    # Compute advantages
+    advantages, advantages_metadata = compute_group_normalized_rewards(
+        raw_rewards=rewards_tensor,
+        group_size=group_size,
+        baseline=baseline,
+        advantage_eps=advantage_eps,
+        advantage_normalizer=advantage_normalizer,
+    )
+
+    batch_loss = 0
+    all_loss_metadata = []
+
+    microbatch_size = len(repeated_prompts) // gradient_accumulation_steps
+    for i in range(0, len(repeated_prompts), microbatch_size):
+        inputs_microbatch = repeated_prompts[i : i + microbatch_size]
+        labels_microbatch = rollout_responses[i : i + microbatch_size]
+        advantages_microbatch = advantages[i : i + microbatch_size]
+
+        # Tokenize and get log probs
+        output = tokenize_prompt_and_output(
+            prompt_strs=inputs_microbatch,
+            output_strs=labels_microbatch,
+            tokenizer=tokenizer,
+        )
+
+        current_log_probs_dict = get_response_log_probs(
+            model=model,
+            input_ids=output['input_ids'].to(model.device),
+            labels=output['labels'].to(model.device),
+        )
+        current_token_log_probs = current_log_probs_dict['log_probs']
+
+        # Compute per-token loss
+        per_token_loss, loss_metadata = compute_policy_gradient_loss(
+            raw_rewards_or_advantages=advantages_microbatch,
+            policy_log_probs=current_token_log_probs,
+            importance_reweighting_method=importance_reweighting_method,
+            old_log_probs=old_log_probs,
+            cliprange=cliprange,
+            response_mask=output['response_mask'].to(model.device),
+        )
+        all_loss_metadata.append(loss_metadata)
+
+        # Aggregate to scalar
+        scalar_loss = aggregate_loss_across_microbatch(
+            per_token_policy_gradient_loss=per_token_loss,
+            mask=output['response_mask'].to(model.device),
+            loss_normalization=loss_normalization,
+            normalization_constant=normalization_constant,
+        )
+        scalar_loss /= gradient_accumulation_steps
+        scalar_loss.backward()
+        batch_loss += scalar_loss
+
+    if max_grad_norm is not None:
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
+
+    optimizer.step()
+
+    optimizer.zero_grad()
+
+    all_loss_metadata_dict = {}
+    if all_loss_metadata:
+        for k in all_loss_metadata[0].keys():
+            values = [metadata[k] for metadata in all_loss_metadata]
+            all_loss_metadata_dict[k] = sum(values) / len(values)
+
+    metadata = rewards_metadata | advantages_metadata
+    metadata = metadata | all_loss_metadata_dict
+
+    if max_grad_norm is not None:
+        metadata['grad_norm'] = grad_norm
+
+    return batch_loss, metadata

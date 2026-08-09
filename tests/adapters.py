@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizerBase
-from cs336_alignment.grpo import tokenize_prompt_and_output, get_response_log_probs, compute_rollout_rewards, compute_group_normalized_rewards, compute_policy_gradient_loss, aggregate_loss_across_microbatch
+from cs336_alignment.grpo import tokenize_prompt_and_output, get_response_log_probs, compute_rollout_rewards, compute_group_normalized_rewards, compute_policy_gradient_loss, aggregate_loss_across_microbatch, grpo_train_step
 
 
 def run_tokenize_prompt_and_output(
@@ -321,8 +321,26 @@ def run_grpo_train_step(
                 Dict with metadata from the underlying loss call, gradient norm
                 before clipping, and any other statistics you might want to log.
     """
-    raise NotImplementedError
-
+    return grpo_train_step(
+        model=model,
+        tokenizer=tokenizer,
+        optimizer=optimizer,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        max_grad_norm=max_grad_norm,
+        reward_fn=reward_fn,
+        repeated_prompts=repeated_prompts,
+        rollout_responses=rollout_responses,
+        repeated_ground_truths=repeated_ground_truths,
+        group_size=group_size,
+        baseline=baseline,
+        advantage_eps=advantage_eps,
+        advantage_normalizer=advantage_normalizer,
+        importance_reweighting_method=importance_reweighting_method,
+        old_log_probs=old_log_probs,
+        cliprange=cliprange,
+        loss_normalization=loss_normalization,
+        normalization_constant=normalization_constant,
+    )
 
 """
 The below adapters are used in the optional 
