@@ -2,19 +2,8 @@
 import json
 from vllm_utils import VLLMServer, VLLMCompletion
 from drgrpo_grader import r1_zero_reward_fn, question_only_reward_fn
+from utils import load_prompt, load_data
 
-
-def load_data(filepath: str):
-    examples = []
-    with open(filepath, "r", encoding="utf-8") as f:
-        for line in f:
-            examples.append(json.loads(line))
-    return examples
-
-def load_prompt(prompt_path: str):
-    with open(prompt_path, "r") as f:
-        prompt = f.read()
-    return prompt
 
 def grade(responses, ground_truths, reward_fn):
     rewards = [
