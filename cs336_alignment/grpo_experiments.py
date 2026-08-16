@@ -45,6 +45,7 @@ def main():
     parser.add_argument("--rollout_batch_size", type=int, default=256)
 
     # training hyperparams
+    parser.add_argument("--n_train_examples", type=int, default=6400)
     parser.add_argument("--num_rollout_steps", type=int, default=200)
     parser.add_argument("--learning_rate", type=float, default=1e-5)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=32)
@@ -52,13 +53,15 @@ def main():
     parser.add_argument("--advantage_eps", type=float, default=1e-6)
 
     parser.add_argument("--eval_every", type=int, default=10)
-    parser.add_argument("--val_size", type=int, default=1024)
+    parser.add_argument("--n_val_examples", type=int, default=1024)
+
+    parser.add_argument("--seed", type=int, default=42)
 
     args = parser.parse_args()
 
     # Load data and prompt
     # train_set and val_set are a list of dicts with 'question' and 'answer'
-    train_set = load_data(args.train_file_path)
+    train_set = load_data(args.train_file_path)[: args.n_train_examples]
     val_set = load_data(args.val_file_path)
     prompt = load_prompt(args.prompt)
 
@@ -98,7 +101,7 @@ def main():
         'temperature': args.sampling_temperature,
         'max_tokens': args.sampling_max_tokens,
         'n': 1,
-        'seed': 42,
+        'seed': args.seed,
         'stop': ["</answer>"],
         'include_stop_str_in_output': True,
     }
@@ -157,8 +160,8 @@ def main():
         wandb.log(wandb_data)
 
         if step % args.eval_every == 0:
-            val_rollout_prompts = [val_set[i]['question'] for i in range(args.val_size)]
-            val_rollout_ground_truths = [val_set[i]['answer'].split('####')[1].strip() for i in range(args.val_size)]
+            val_rollout_prompts = [val_set[i]['question'] for i in range(args.n_val_examples)]
+            val_rollout_ground_truths = [val_set[i]['answer'].split('####')[1].strip() for i in range(args.n_val_examples)]
             val_rollout_prompts = [prompt.format(question=ex) for ex in val_rollout_prompts]
             val_repeated_prompts = [p for p in val_rollout_prompts for _ in range(args.group_size)]
             val_repeated_ground_truths = [p for p in val_rollout_ground_truths for _ in range(args.group_size)]
