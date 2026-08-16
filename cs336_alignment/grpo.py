@@ -231,6 +231,8 @@ def grpo_train_step(
         )
         current_token_log_probs = current_log_probs_dict['log_probs']
 
+        advantages_microbatch = advantages_microbatch.to(model.device)
+
         # Compute per-token loss
         per_token_loss, loss_metadata = compute_policy_gradient_loss(
             raw_rewards_or_advantages=advantages_microbatch,

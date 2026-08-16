@@ -59,7 +59,7 @@ def main():
         },
     )
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     policy, tokenizer = get_model_and_tokenizer(args.model, device)
 
@@ -69,7 +69,7 @@ def main():
 
     reward_fn = r1_zero_reward_fn
 
-    server = VLLMServer(model_id=args.model, gpu=0)
+    server = VLLMServer(model_id=args.model, gpu=1)
 
     server.start()
     server.init_weight_sync(policy_device=device)
@@ -154,10 +154,20 @@ def main():
             for k, v in rewards_metadata.items():
                 new_k = f"val/{k}"
                 wandb_data[new_k] = v
-            for i in range(3):
-                wandb_data[f"val_sample_prompt/{i}"] = val_repeated_prompts[i]
-                wandb_data[f"val_sample_response/{i}"] = completions_text[i]
-                wandb_data[f"val_sample_ground_truth/{i}"] = val_repeated_ground_truths[i]
+
+            columns = ["prompt", "response", "ground_truth", "reward"]
+            table_data = []
+            for i in range(0, 5 * args.group_size, args.group_size):
+                table_data.append([
+                    val_repeated_prompts[i],
+                    completions_text[i],
+                    val_repeated_ground_truths[i],
+                    rewards_tensor[i].item(),
+                ])
+            wandb_data["val_samples"] = wandb.Table(
+                columns=columns,
+                data=table_data,
+            )
 
             wandb.log(wandb_data)
 
