@@ -13,6 +13,23 @@ from utils import load_prompt, load_data
 import wandb
 
 
+def get_wandb_samples_table(step, completions, group_size, num_samples_to_log, repeated_prompts, repeated_ground_truths, table_name):
+    wandb_data = {"step": step}
+    columns = ["prompt", "response", "ground_truth"]
+    table_data = []
+    completions_text = [completion.text for completion in completions]
+    for i in range(0, num_samples_to_log * group_size, group_size):
+        table_data.append([
+            repeated_prompts[i],
+            completions_text[i],
+            repeated_ground_truths[i],
+        ])
+    wandb_data[table_name] = wandb.Table(
+        columns=columns,
+        data=table_data,
+    )
+    return wandb_data
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -35,7 +52,7 @@ def main():
     parser.add_argument("--advantage_eps", type=float, default=1e-6)
 
     parser.add_argument("--eval_every", type=int, default=10)
-    parser.add_argument("--val_size", type=int, default=20)
+    parser.add_argument("--val_size", type=int, default=1024)
 
     args = parser.parse_args()
 
@@ -107,6 +124,10 @@ def main():
             batch_size=args.rollout_batch_size,
         )
 
+        if step % 40 == 0:
+            wandb_train_samples_table = get_wandb_samples_table(step, completions, args.group_size, 5, repeated_prompts, repeated_ground_truths, "train_samples")
+            wandb.log(wandb_train_samples_table)
+
         batch_loss, metadata = grpo.grpo_train_step(
             model=policy,
             tokenizer=tokenizer,
@@ -155,21 +176,8 @@ def main():
                 new_k = f"val/{k}"
                 wandb_data[new_k] = v
 
-            columns = ["prompt", "response", "ground_truth", "reward"]
-            table_data = []
-            for i in range(0, 5 * args.group_size, args.group_size):
-                table_data.append([
-                    val_repeated_prompts[i],
-                    completions_text[i],
-                    val_repeated_ground_truths[i],
-                    rewards_tensor[i].item(),
-                ])
-            wandb_data["val_samples"] = wandb.Table(
-                columns=columns,
-                data=table_data,
-            )
-
-            wandb.log(wandb_data)
+            wandb_val_samples_table = get_wandb_samples_table(step, val_completions, args.group_size, 5, val_repeated_prompts, val_repeated_ground_truths, "val_samples")
+            wandb.log(wandb_data | wandb_val_samples_table)
 
 
     server.stop()
