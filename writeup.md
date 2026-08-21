@@ -60,13 +60,30 @@ Example of correct rollout:
 * A: A robe takes 2 bolts of blue fiber. It takes half that much white fiber, which is 2 / 2 = 1 bolt. So in total, it takes 2 + 1 = 3 bolts. </think> <answer> 3 </answer>
 
 (c)
-
+Batch loss.
 ![batch loss across 4 seeds](runs/50steps_4seeds_batch_loss.png)
+
+Gradient norm increasing from ~0.55 to ~0.65 with occasional spikes to ~1 indicates that the magnitude of the policy updates is gradually increasing over time. Some rollout batches produce unusually strong learning signals.
 ![grad norm across 4 seeds](runs/50steps_4seeds_grad_norm.png)
+
+Decreases from 0.7 to 0.2. The model becomes more deterministic in its predictions / responses.
 ![token entropy across 4 seeds](runs/50steps_4seeds_token_entropy.png)
+
+Increase from 0.2 to 0.5, then seems to oscillate. Noisy since it's per-step batches.
 ![train mean reward across 4 seeds](runs/50steps_4seeds_train_mean_reward.png)
+
+Very noisy.
 ![train mean format reward across 4 seeds](runs/50steps_4seeds_train_mean_format_reward.png)
+
+Monotonic increase for val mean reward.
 ![val mean reward across 4 seeds](runs/50steps_4seeds_val_mean_reward.png)
+
+Seems to be a slight decreasing trend for val mean format reward.
 ![val mean format reward across 4 seeds](runs/50steps_4seeds_val_mean_format_reward.png)
+
+Average response length increases across all 4 seeds. Perhaps the longer responses are causing higher chances of formatting incorrectly?
 ![val avg response length across 4 seeds](runs/50steps_4seeds_val_avg_response_length.png)
+
+
+Looking at a few examples of rollouts before and after training, I see that before training the model averages ~2/8 samples correct, but at the end of training the model averages ~6/8 samples correct. The reasoning also became much more coherent, with the model improving from obvious reasoning failures to systematically decomposing the problem.
 
