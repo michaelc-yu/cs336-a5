@@ -39,3 +39,34 @@ The model does the best for r1_zero_three_shot prompts. The model's completion a
 
 
 
+# Problem (grpo_experiments_standard_on_policy)
+
+(a) See grpo_experiments.py
+
+(b) Ran it for 50 steps using r1 zero three shot prompt. The r1 zero prompt never seems to get any correct answers so all rewards are always 0; the model is unable to learn.
+
+![50 steps val reward](runs/50steps_val_reward.png)
+
+Rollouts also look reasonable.
+
+Example of incorrect rollout:
+
+* Q: Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?
+* A: Janet’s ducks lay 16 eggs per day. She eats 3 eggs for breakfast, so that leaves 16 - 3 = 13 eggs. She bakes muffins for her friends with 4 eggs each, which means she bakes 4 * 2 = 8 muffins. So she has 13 - 8 = 5 eggs left to sell. At $2 per duck egg, she makes 5 * 2 = $10 every day at the farmers' market. </think> <answer> 10 </answer>
+
+Example of correct rollout:
+
+* Q: A robe takes 2 bolts of blue fiber and half that much white fiber.  How many bolts in total does it take?
+* A: A robe takes 2 bolts of blue fiber. It takes half that much white fiber, which is 2 / 2 = 1 bolt. So in total, it takes 2 + 1 = 3 bolts. </think> <answer> 3 </answer>
+
+(c)
+
+![batch loss across 4 seeds](runs/50steps_4seeds_batch_loss.png)
+![grad norm across 4 seeds](runs/50steps_4seeds_grad_norm.png)
+![token entropy across 4 seeds](runs/50steps_4seeds_token_entropy.png)
+![train mean reward across 4 seeds](runs/50steps_4seeds_train_mean_reward.png)
+![train mean format reward across 4 seeds](runs/50steps_4seeds_train_mean_format_reward.png)
+![val mean reward across 4 seeds](runs/50steps_4seeds_val_mean_reward.png)
+![val mean format reward across 4 seeds](runs/50steps_4seeds_val_mean_format_reward.png)
+![val avg response length across 4 seeds](runs/50steps_4seeds_val_avg_response_length.png)
+

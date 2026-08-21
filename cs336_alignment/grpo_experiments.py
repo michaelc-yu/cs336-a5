@@ -66,16 +66,18 @@ def main():
     prompt = load_prompt(args.prompt)
 
     # Init wandb
-    run_name = None
+    group_name = f"grpo-{args.model.split('/')[-1]}-{args.prompt.split('/')[-1]}"
     wandb.init(
         project="cs336-a5-grpo",
-        name=run_name,
+        group=group_name,
+        name=f"{group_name}-seed{args.seed}",
         config={
             "learning_rate": args.learning_rate,
             "rollout_batch_size": args.rollout_batch_size,
             "group_size": args.group_size,
             "sampling_temperature": args.sampling_temperature,
             "num_rollout_steps": args.num_rollout_steps,
+            "seed": args.seed,
         },
     )
 
@@ -89,7 +91,7 @@ def main():
 
     reward_fn = r1_zero_reward_fn
 
-    server = VLLMServer(model_id=args.model, gpu=1)
+    server = VLLMServer(model_id=args.model, gpu=1, gpu_memory_utilization=0.4)
 
     server.start()
     server.init_weight_sync(policy_device=device)
@@ -97,11 +99,12 @@ def main():
     distinct_examples_per_step = args.rollout_batch_size // args.group_size
     N = len(train_set)
 
+    # pass in None for seed to tell vLLM not to force each request through same deterministic stream
     sampling_params = {
         'temperature': args.sampling_temperature,
         'max_tokens': args.sampling_max_tokens,
         'n': 1,
-        'seed': args.seed,
+        'seed': None,
         'stop': ["</answer>"],
         'include_stop_str_in_output': True,
     }
@@ -168,13 +171,27 @@ def main():
             val_completions = server.generate_completions(
                 prompts=val_repeated_prompts,
                 sampling_params=sampling_params,
-                batch_size=args.rollout_batch_size,
+                batch_size=None,
             )
             completions_text = [completion.text for completion in val_completions]
             rewards_tensor, rewards_metadata = grpo.compute_rollout_rewards(
                 reward_fn=reward_fn, rollout_responses=completions_text, repeated_ground_truths=val_repeated_ground_truths
             )
-            wandb_data = {"step": step}
+            tokenized_completions = tokenizer(
+                completions_text,
+                add_special_tokens=False,
+                padding=False,
+                truncation=False,
+            )["input_ids"]
+
+            avg_response_length = sum(
+                len(token_ids) for token_ids in tokenized_completions
+            ) / len(tokenized_completions)
+
+            wandb_data = {
+                "step": step,
+                "val/avg_response_length": avg_response_length,
+            }
             for k, v in rewards_metadata.items():
                 new_k = f"val/{k}"
                 wandb_data[new_k] = v

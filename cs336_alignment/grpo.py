@@ -223,13 +223,21 @@ def grpo_train_step(
             output_strs=labels_microbatch,
             tokenizer=tokenizer,
         )
+        response_mask = output["response_mask"].to(model.device)
 
         current_log_probs_dict = get_response_log_probs(
             model=model,
             input_ids=output['input_ids'].to(model.device),
             labels=output['labels'].to(model.device),
+            return_token_entropy=True,
         )
         current_token_log_probs = current_log_probs_dict['log_probs']
+        current_token_entropy = current_log_probs_dict["token_entropy"]
+
+        mean_response_entropy = (
+            (current_token_entropy * response_mask).sum()
+            / response_mask.sum().clamp(min=1)
+        )
 
         advantages_microbatch = advantages_microbatch.to(model.device)
 
@@ -240,8 +248,9 @@ def grpo_train_step(
             importance_reweighting_method=importance_reweighting_method,
             old_log_probs=old_log_probs,
             cliprange=cliprange,
-            response_mask=output['response_mask'].to(model.device),
+            response_mask=response_mask,
         )
+        loss_metadata['mean_token_entropy'] = mean_response_entropy.detach().item()
         all_loss_metadata.append(loss_metadata)
 
         # Aggregate to scalar
