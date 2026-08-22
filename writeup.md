@@ -87,3 +87,9 @@ Average response length increases across all 4 seeds. Perhaps the longer respons
 
 Looking at a few examples of rollouts before and after training, I see that before training the model averages ~2/8 samples correct, but at the end of training the model averages ~6/8 samples correct. The reasoning also became much more coherent, with the model improving from obvious reasoning failures to systematically decomposing the problem.
 
+
+# Problem (grpo_learning_rate)
+
+Sweeped over 1e-6, 1e-5, 3e-5, 1e-4. Learning rate of 3e-5 works the best. 1e-6 is too small to do meaningful learning and 1e-4 is too large and diverges.
+
+![learning rate sweep](runs/50steps_learningrate_sweep.png)

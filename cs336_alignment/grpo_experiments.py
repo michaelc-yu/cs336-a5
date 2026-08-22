@@ -70,7 +70,7 @@ def main():
     wandb.init(
         project="cs336-a5-grpo",
         group=group_name,
-        name=f"{group_name}-seed{args.seed}",
+        name=f"{group_name}-seed{args.seed}-lr{args.learning_rate}",
         config={
             "learning_rate": args.learning_rate,
             "rollout_batch_size": args.rollout_batch_size,
