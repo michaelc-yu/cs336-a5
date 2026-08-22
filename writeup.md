@@ -100,3 +100,9 @@ Sweeped over 1e-6, 1e-5, 3e-5, 1e-4. Learning rate of 3e-5 works the best. 1e-6 
 The r1 zero three shot prompt performs by far the best. Based on the prompting baselines study, the model gets almost no correctness reward in both the question only prompt and r1-zero prompt scenarios. The model did improve for the r1 zero prompt at the end though (train and val mean_reward of ~0.06), which might mean that if trained for more iterations, the correct responses could start getting reinforced and the rewards might keep climbing, but need to verify by increasing number of iterations (e.g. 200 instead of 50).
 
 ![prompt ablation](runs/50steps_prompt_ablation.png)
+
+
+# Problem (think_about_length_normalization)
+
+Sequence normalization gives each response equal weight regardless of response length. But this means that tokens in shorter responses have more weight than tokens in longer responses which could bias training toward shorter responses. Constant normalization gives each token equal weight, but longer responses then contribute more to the overall gradient and can dominate training. In our run, the average validation response length increased from ~108 to ~130+ tokens, so sequence normalization keeps the influence of each response more consistent as responses get longer, while constant normalization would give those longer responses more influence. For our GRPO setup, it seems that sequence normalization is more appropriate since the rewards and advantages are assigned at the response level.
+

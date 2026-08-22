@@ -163,13 +163,14 @@ def aggregate_loss_across_microbatch(
         num_response_tokens = mask.sum(dim=1)
         num_response_tokens = torch.clamp(num_response_tokens, min=1)
         per_sequence_loss = per_sequence_loss_sum / num_response_tokens
+        scalar_loss = per_sequence_loss.mean()
     elif loss_normalization == 'constant':
         assert normalization_constant is not None, "Normalization constant must be provided for 'constant' normalization."
-        per_sequence_loss = per_sequence_loss_sum / normalization_constant
+        sequence_loss_sum = per_sequence_loss_sum.sum()
+        scalar_loss = sequence_loss_sum / normalization_constant
     else:
         raise ValueError(f"Unknown loss normalization: {loss_normalization}")
 
-    scalar_loss = per_sequence_loss.mean()
     return scalar_loss
 
 
