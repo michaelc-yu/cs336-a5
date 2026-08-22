@@ -93,3 +93,10 @@ Looking at a few examples of rollouts before and after training, I see that befo
 Sweeped over 1e-6, 1e-5, 3e-5, 1e-4. Learning rate of 3e-5 works the best. 1e-6 is too small to do meaningful learning and 1e-4 is too large and diverges.
 
 ![learning rate sweep](runs/50steps_learningrate_sweep.png)
+
+
+# Problem (grpo_prompt_ablation)
+
+The r1 zero three shot prompt performs by far the best. Based on the prompting baselines study, the model gets almost no correctness reward in both the question only prompt and r1-zero prompt scenarios. The model did improve for the r1 zero prompt at the end though (train and val mean_reward of ~0.06), which might mean that if trained for more iterations, the correct responses could start getting reinforced and the rewards might keep climbing, but need to verify by increasing number of iterations (e.g. 200 instead of 50).
+
+![prompt ablation](runs/50steps_prompt_ablation.png)
