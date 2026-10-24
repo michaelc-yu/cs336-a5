@@ -139,3 +139,13 @@ Mean validation reward excluding the 2 outliers:
 There seems to be two runs (once for MaxRL and once for Dr_GRPO) that experiences a "collapse". The mean_token_entropy plot also shows only these two runs' token entropies blow up which can come from steps that are too large.
 
 Without the collapsed seeds, Dr_GRPO performs the best.
+
+
+# Problem (think_about_importance_reweighting)
+
+A major bottleneck in LLM post-training is the high cost of generating rollouts compared with performing additional optimization steps on existing data. Off-policy RL allows to overcome this bottleneck by generating a batch of text once, and then running multiple optimization steps over that data instead of a single gradient step. However, as the policy changes, the distribution of the previously generated data increasingly diverges from the current policy. Important reweighting is a strategy that helps against this bias by weighting samples according to the ratio between their probabilities under the current policy and the behavior policy that generated them.
+
+- For no reweighting, the bias would be high but the variance is low.
+- PPO/GRPO-style clipped token-level importance reweighting would have low bias but would have high variance since tracking token-level adjustments at each individual step could introduce instability and noisy optimizations.
+- GSPO instead applies importance reweighting at the sequence level rather than for each individual token. This helps reduce the impact of noisy token-level ratios and makes training more stable. However it loses some of the fine-grained correction obtained from token-level reweighting, and clipping still introduces some bias. So it is more of a middle ground.
+
